@@ -8,7 +8,7 @@ class ApiClient {
 
   // Singleton pattern
   factory ApiClient() => _instance;
-  static const String baseUrl = 'http://192.168.155.32:6300';
+  static const String baseUrl = 'http://192.168.17.32:6300';
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl + '/api',

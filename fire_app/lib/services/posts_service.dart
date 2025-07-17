@@ -236,4 +236,48 @@ class PostsService {
       path: '/jam-posts/$jamPostId/reactions',
     );
   }
+
+  // Approve a jam post
+  Future<void> approveJamPost({required int postId}) async {
+    final response = await _apiClient.request(
+      method: 'POST',
+      path: '/jam-posts/$postId/approve',
+    );
+    if (response['success'] != true) {
+      throw Exception(response['message'] ?? 'Failed to approve post');
+    }
+  }
+
+  // Disapprove a jam post
+  Future<void> disapproveJamPost({required int postId}) async {
+    final response = await _apiClient.request(
+      method: 'POST',
+      path: '/jam-posts/$postId/disapprove',
+    );
+    if (response['success'] != true) {
+      throw Exception(response['message'] ?? 'Failed to disapprove post');
+    }
+  }
+
+  // Fetch nearby jam posts
+  Future<List<Map<String, dynamic>>> getNearbyJamPosts({
+    required double latitude,
+    required double longitude,
+    double radius = 2.0,
+  }) async {
+    final response = await _apiClient.request(
+      method: 'GET',
+      path: '/jam-posts/nearby',
+      queryParameters: {
+        'lat': latitude.toString(),
+        'lng': longitude.toString(),
+        'radius': radius.toString(),
+      },
+    );
+    if (response['success'] == true && response['data'] is List) {
+      return List<Map<String, dynamic>>.from(response['data']);
+    } else {
+      throw Exception(response['message'] ?? 'Failed to fetch nearby posts');
+    }
+  }
 }

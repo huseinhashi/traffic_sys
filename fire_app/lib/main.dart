@@ -9,6 +9,7 @@ import 'package:fire_app/screens/auth/register_screen.dart';
 import 'package:fire_app/screens/splash_screen.dart';
 import 'package:fire_app/screens/dashboard_screen.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:fire_app/providers/location_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,11 +23,36 @@ void main() {
     print("Error setting Mapbox token: $e");
   }
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PostsProvider()),
+        ChangeNotifierProvider(create: (_) => ConversationsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final locationProvider =
+          Provider.of<LocationProvider>(context, listen: false);
+      await locationProvider.initializeLocation();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

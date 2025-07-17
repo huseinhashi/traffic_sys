@@ -3,7 +3,13 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { Op } from "sequelize";
-import { JamPost, Comment, Reaction, User } from "../models/index.js";
+import {
+  JamPost,
+  Comment,
+  Reaction,
+  User,
+  JamPostApproval,
+} from "../models/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -163,14 +169,12 @@ export const getAllJamPosts = async (req, res, next) => {
   }
 };
 
-// Get jam posts for regular users (their own posts + all public posts)
-export const getUserJamPosts = async (req, res, next) => {
+async function getUserJamPostsInternal(req, res, next) {
   try {
     const { page = 1, limit = 10, level, search, timeFilter } = req.query;
     const offset = (page - 1) * limit;
     const userId = req.user.user_id;
-
-    // Build where clause - user can see their own posts and all other posts
+    // Build where clause
     const whereClause = {};
     if (level && level !== "all") {
       whereClause.level = level;
@@ -186,55 +190,62 @@ export const getUserJamPosts = async (req, res, next) => {
         whereClause.createdAt = { [Op.gte]: from };
       }
     }
-
     const jamPosts = await JamPost.findAndCountAll({
       where: whereClause,
-      include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["id", "name", "email", "avatar", "role"],
-        },
-      ],
       order: [["createdAt", "DESC"]],
       limit: parseInt(limit),
       offset: parseInt(offset),
     });
-
-    // Get counts and user's reaction for each jam post
+    // Filter posts where approvals > disapprovals using JamPostApproval table
+    const filteredRows = [];
+    for (const jamPost of jamPosts.rows) {
+      const approvalsCount = await JamPostApproval.count({
+        where: { jam_post_id: jamPost.id, type: "approve" },
+      });
+      const disapprovalsCount = await JamPostApproval.count({
+        where: { jam_post_id: jamPost.id, type: "disapprove" },
+      });
+      if (approvalsCount > disapprovalsCount) {
+        filteredRows.push(jamPost);
+      }
+    }
+    // Get details for each post
     const jamPostsWithDetails = await Promise.all(
-      jamPosts.rows.map(async (jamPost) => {
+      filteredRows.map(async (jamPost) => {
         const details = await getJamPostWithDetails(jamPost);
-
         // Check if current user has reacted to this post
-        const userReaction = await Reaction.findOne({
-          where: {
-            jam_post_id: jamPost.id,
-            user_id: userId,
-          },
+        const userVote = await JamPostApproval.findOne({
+          where: { jam_post_id: jamPost.id, user_id: userId },
         });
-
         return {
           ...details,
-          userReaction: userReaction ? userReaction.reaction_type : null,
+          userVote: userVote ? userVote.type : null,
           isOwner: jamPost.user_id === userId,
         };
       })
     );
-
     res.json({
       success: true,
       data: jamPostsWithDetails,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(jamPosts.count / limit),
-        totalItems: jamPosts.count,
+        totalPages: Math.ceil(filteredRows.length / limit),
+        totalItems: filteredRows.length,
         itemsPerPage: parseInt(limit),
       },
     });
   } catch (error) {
     next(error);
   }
+}
+
+export const getUserJamPosts = async (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    // For admin, return all posts (no approvals/disapprovals filter)
+    return getAllJamPosts(req, res, next);
+  }
+  // For regular users, use the filtered logic
+  return getUserJamPostsInternal(req, res, next);
 };
 
 // Get single jam post by ID
@@ -520,6 +531,103 @@ export const getJamPostStats = async (req, res, next) => {
         },
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Approve a jam post
+export const approveJamPost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.user_id;
+    const jamPost = await JamPost.findByPk(id);
+    if (!jamPost) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Jam post not found" });
+    }
+    // Upsert approval
+    await JamPostApproval.upsert({
+      jam_post_id: jamPost.id,
+      user_id: userId,
+      type: "approve",
+    });
+    // Remove any disapprove for this user/post
+    await JamPostApproval.destroy({
+      where: { jam_post_id: jamPost.id, user_id: userId, type: "disapprove" },
+    });
+    return res.json({ success: true, message: "Post approved" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Disapprove a jam post
+export const disapproveJamPost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.user_id;
+    const jamPost = await JamPost.findByPk(id);
+    if (!jamPost) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Jam post not found" });
+    }
+    // Upsert disapproval
+    await JamPostApproval.upsert({
+      jam_post_id: jamPost.id,
+      user_id: userId,
+      type: "disapprove",
+    });
+    // Remove any approve for this user/post
+    await JamPostApproval.destroy({
+      where: { jam_post_id: jamPost.id, user_id: userId, type: "approve" },
+    });
+    return res.json({ success: true, message: "Post disapproved" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get nearby jam posts within a radius (in km)
+export const getNearbyJamPosts = async (req, res, next) => {
+  try {
+    const { lat, lng, radius = 2 } = req.query; // default 2km
+    if (!lat || !lng) {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and longitude are required",
+      });
+    }
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const rad = parseFloat(radius);
+    const currentUserId = req.user.user_id;
+    // Fetch all posts (could be optimized with geospatial index)
+    const jamPosts = await JamPost.findAll();
+    // Haversine formula
+    const toRad = (value) => (value * Math.PI) / 180;
+    const isWithinRadius = (post) => {
+      if (post.latitude == null || post.longitude == null) return false;
+      const R = 6371; // Earth radius in km
+      const dLat = toRad(post.latitude - latitude);
+      const dLon = toRad(post.longitude - longitude);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(latitude)) *
+          Math.cos(toRad(post.latitude)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c;
+      return d <= rad;
+    };
+    // Only return posts within radius and not owned by the current user
+    const filtered = jamPosts.filter(
+      (post) => isWithinRadius(post) && post.user_id !== currentUserId
+    );
+    res.json({ success: true, data: filtered });
   } catch (error) {
     next(error);
   }

@@ -8,6 +8,7 @@ import Comment from "./comments.model.js";
 import Reaction from "./reactions.model.js";
 import Conversation from "./conversations.model.js";
 import Message from "./messages.model.js";
+import JamPostApproval from "./jamPostApprovals.model.js";
 
 // User - JamPost relationships
 User.hasMany(JamPost, { foreignKey: "user_id" });
@@ -55,4 +56,13 @@ User.hasMany(Conversation, {
 Conversation.belongsTo(User, { foreignKey: "user1_id", as: "user1" });
 Conversation.belongsTo(User, { foreignKey: "user2_id", as: "user2" });
 
-export { User, JamPost, Comment, Reaction, Conversation, Message, sequelize };
+export {
+  User,
+  JamPost,
+  Comment,
+  Reaction,
+  Conversation,
+  Message,
+  JamPostApproval,
+  sequelize,
+};

@@ -106,6 +106,11 @@ class PostsProvider extends ChangeNotifier {
   String? _error;
   bool _hasMorePosts = true;
   int _currentPage = 1;
+  List<JamPost> _nearbyJamPosts = [];
+  bool _isNearbyLoading = false;
+  String? _nearbyError;
+  bool _isVoting = false;
+  String? _voteError;
 
   // Getters
   List<JamPost> get jamPosts => _jamPosts;
@@ -114,6 +119,11 @@ class PostsProvider extends ChangeNotifier {
   String? get error => _error;
   bool get hasMorePosts => _hasMorePosts;
   int get currentPage => _currentPage;
+  List<JamPost> get nearbyJamPosts => _nearbyJamPosts;
+  bool get isNearbyLoading => _isNearbyLoading;
+  String? get nearbyError => _nearbyError;
+  bool get isVoting => _isVoting;
+  String? get voteError => _voteError;
 
   // Clear error
   void clearError() {
@@ -531,5 +541,66 @@ class PostsProvider extends ChangeNotifier {
   void clearComments() {
     _comments.clear();
     notifyListeners();
+  }
+
+  Future<void> loadNearbyJamPosts({
+    required double latitude,
+    required double longitude,
+    double radius = 2.0,
+  }) async {
+    _isNearbyLoading = true;
+    _nearbyError = null;
+    notifyListeners();
+    try {
+      final postsData = await _postsService.getNearbyJamPosts(
+        latitude: latitude,
+        longitude: longitude,
+        radius: radius,
+      );
+      _nearbyJamPosts =
+          postsData.map((post) => JamPost.fromJson(post)).toList();
+    } catch (e) {
+      _nearbyError = 'Error loading nearby posts: $e';
+    } finally {
+      _isNearbyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> approveJamPost(int postId,
+      {double? latitude, double? longitude}) async {
+    _isVoting = true;
+    _voteError = null;
+    notifyListeners();
+    try {
+      await _postsService.approveJamPost(postId: postId);
+      // Optionally reload nearby posts if coordinates provided
+      if (latitude != null && longitude != null) {
+        await loadNearbyJamPosts(latitude: latitude, longitude: longitude);
+      }
+    } catch (e) {
+      _voteError = 'Error approving post: $e';
+    } finally {
+      _isVoting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> disapproveJamPost(int postId,
+      {double? latitude, double? longitude}) async {
+    _isVoting = true;
+    _voteError = null;
+    notifyListeners();
+    try {
+      await _postsService.disapproveJamPost(postId: postId);
+      if (latitude != null && longitude != null) {
+        await loadNearbyJamPosts(latitude: latitude, longitude: longitude);
+      }
+    } catch (e) {
+      _voteError = 'Error disapproving post: $e';
+    } finally {
+      _isVoting = false;
+      notifyListeners();
+    }
   }
 }

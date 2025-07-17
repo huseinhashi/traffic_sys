@@ -7,6 +7,9 @@ import {
   updateJamPost,
   deleteJamPost,
   getJamPostStats,
+  approveJamPost,
+  disapproveJamPost,
+  getNearbyJamPosts,
 } from "../controllers/jamPostController.js";
 import { authenticate, restrictTo } from "../middlewares/authmiddleware.js";
 import {
@@ -41,7 +44,10 @@ router.get("/admin/stats", restrictTo("admin"), getJamPostStats);
 
 // User routes (both admin and regular users can access)
 router.get("/", getUserJamPosts);
+router.get("/nearby", getNearbyJamPosts);
 router.get("/:id", getJamPostById);
+router.post("/:id/approve", approveJamPost);
+router.post("/:id/disapprove", disapproveJamPost);
 
 // Create jam post (both admin and regular users)
 router.post(

@@ -4,6 +4,7 @@ import 'package:fire_app/screens/posts_screen.dart';
 import 'package:fire_app/screens/conversations_screen.dart';
 import 'package:fire_app/screens/profile_screen.dart';
 import 'package:fire_app/screens/home_map_screen.dart';
+import 'package:fire_app/screens/nearby_jams_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -16,6 +17,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
+    const NearbyJamsScreen(),
     const HomeMapScreen(),
     const PostsScreen(),
     const ConversationsScreen(),
@@ -63,6 +65,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.location_on_outlined),
+            selectedIcon: Icon(Icons.location_on),
+            label: "Nearby",
+          ),
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
