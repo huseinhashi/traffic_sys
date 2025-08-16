@@ -6,6 +6,7 @@ import commentRoutes from "./commentRoutes.js";
 import reactionRoutes from "./reactionRoutes.js";
 import conversationRoutes from "./conversationRoutes.js";
 import messageRoutes from "./messageRoutes.js";
+import notificationRoutes from "./notificationRoutes.js";
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.use("/", commentRoutes);
 router.use("/", reactionRoutes);
 router.use("/conversations", conversationRoutes);
 router.use("/", messageRoutes);
+router.use("/notifications", notificationRoutes);
 
 export default router;

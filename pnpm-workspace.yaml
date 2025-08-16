@@ -1,8 +1,0 @@
-packages:
-  - portal
-  - backend
-
-ignoredBuiltDependencies:
-  - "@swc/core"
-  - bcrypt
-  - esbuild

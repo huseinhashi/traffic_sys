@@ -9,6 +9,7 @@ import Reaction from "./reactions.model.js";
 import Conversation from "./conversations.model.js";
 import Message from "./messages.model.js";
 import JamPostApproval from "./jamPostApprovals.model.js";
+import Notification from "./notifications.model.js";
 
 // User - JamPost relationships
 User.hasMany(JamPost, { foreignKey: "user_id" });
@@ -56,6 +57,14 @@ User.hasMany(Conversation, {
 Conversation.belongsTo(User, { foreignKey: "user1_id", as: "user1" });
 Conversation.belongsTo(User, { foreignKey: "user2_id", as: "user2" });
 
+// User - Notification relationships
+User.hasMany(Notification, { foreignKey: "user_id" });
+Notification.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+// JamPost - Notification relationships
+JamPost.hasMany(Notification, { foreignKey: "jam_post_id" });
+Notification.belongsTo(JamPost, { foreignKey: "jam_post_id", as: "jamPost" });
+
 export {
   User,
   JamPost,
@@ -64,5 +73,6 @@ export {
   Conversation,
   Message,
   JamPostApproval,
+  Notification,
   sequelize,
 };
